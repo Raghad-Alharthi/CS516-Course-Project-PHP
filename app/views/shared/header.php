@@ -48,6 +48,9 @@
                            href="index.php?route=student/dashboard">Student Dashboard</a>
                     <?php endif; ?>
 
+                    <a style="font-family: Funnel Display; color: #123458; text-decoration: none; margin-left: 20px;"
+                           href="index.php?route=account/profile">Profile </a>
+
                     <!-- Common Logout Link -->
                     <a style="font-family: Funnel Display; color:brown; text-decoration: none; margin-left: 20px;"
                        href="index.php?route=account/logout">Logout</a>

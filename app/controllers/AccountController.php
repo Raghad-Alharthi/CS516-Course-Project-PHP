@@ -78,6 +78,50 @@ class AccountController
         require __DIR__ . '/../views/account/register.php';
     }
 
+    public function profile()
+    {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: index.php?route=account/login');
+            exit;
+        }
+
+        require __DIR__ . '/../views/account/profile.php';
+    }
+
+    public function changePassword()
+    {
+        $error = '';
+        $success = '';
+
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: index.php?route=account/login');
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $pdo = getPDO();
+            $stmt = $pdo->prepare('SELECT password_hash FROM users WHERE user_id = :user_id');
+            $stmt->execute(['user_id' => $_SESSION['user_id']]);
+            $currentHash = $stmt->fetchColumn();
+
+            if (!$currentHash || !password_verify($_POST['old_password'], $currentHash)) {
+                $error = 'Incorrect current password.';
+            } elseif ($_POST['new_password'] !== $_POST['confirm_password']) {
+                $error = 'New passwords do not match.';
+            } else {
+                $newHash = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
+                $update = $pdo->prepare('UPDATE users SET password_hash = :new_hash WHERE user_id = :user_id');
+                $update->execute([
+                    'new_hash' => $newHash,
+                    'user_id'  => $_SESSION['user_id']
+                ]);
+                $success = 'Password successfully updated.';
+            }
+        }
+
+        require __DIR__ . '/../views/account/change_password.php';
+    }
+
     // Logout action
     public function logout()
     {
