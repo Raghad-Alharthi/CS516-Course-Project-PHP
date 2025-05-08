@@ -9,7 +9,17 @@
         <div class="alert alert-success mt-3" role="alert">
             <?= htmlspecialchars($_SESSION['message']) ?>
         </div>
+        <?php unset($_SESSION['message']); ?>
     <?php endif; ?>
+
+    <!-- Flash Errors -->
+    <?php if (!empty($_SESSION['error'])): ?>
+        <div class="alert alert-danger  mt-3" role="alert">
+            <?= htmlspecialchars($_SESSION['error']) ?>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
 
         <!-- Classes Table -->
     <div class="card mb-4" style="border-radius: 12px; padding: 20px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.05); background-color: #F1EFEC;">
@@ -17,6 +27,7 @@
             <thead style="background-color: #123458; color: #f8f7f6;">
                 <tr>
                     <th style="font-family: Funnel Display; background-color: #123458; color: #f8f7f6;">Class Name</th>
+                    <th style="font-family: Funnel Display; background-color: #123458; color: #f8f7f6;">Scheduled Lecture</th>
                     <th style="font-family: Funnel Display; background-color: #123458; color: #f8f7f6;">Teacher</th>
                     <th style="font-family: Funnel Display; background-color: #123458; color: #f8f7f6;">Actions</th>
                 </tr>
@@ -26,6 +37,16 @@
                     <tr>
                         <td style="background-color: #f8f7f6; font-family: Funnel Display; color: #123458;">
                             <?= htmlspecialchars($classItem->class_name) ?>
+                        </td>
+                        <td style="background-color: #f8f7f6; font-family: Funnel Display; color: #123458;">
+                            <?php if (!empty($classItem->lectures)): ?>
+                                <?php
+                                    $firstLecture = new DateTime($classItem->lectures[0]);
+                                    echo $firstLecture->format('l - H:i'); // Example: Monday - 09:00
+                                ?>
+                            <?php else: ?>
+                                <span class="text-muted">No lectures</span>
+                            <?php endif; ?>
                         </td>
                         <td style="background-color: #f8f7f6; font-family: Funnel Display; color: #123458;">
                             <?php if ($classItem->teacher_id): ?>

@@ -6,6 +6,12 @@
             Sick Leave Requests
         </h3>
 
+        <?php if (!empty($_SESSION['error'])): ?>
+            <div class="alert alert-danger mt-3"><?= htmlspecialchars($_SESSION['error']) ?></div>
+            <?php unset($_SESSION['error']); ?>
+        <?php endif; ?>
+
+
         <?php if (!empty($requests)): ?>
             <table class="table table-bordered mt-4" style="background-color: #f8f7f6;">
                 <thead style="background-color: #123458; color: #f8f7f6;">
@@ -24,7 +30,7 @@
                             <td><?= htmlspecialchars(date('Y-m-d h:i A', strtotime($req->lecture_datetime))) ?></td>
                             <td>
                                 <?php if (!empty($req->sick_leave_file)): ?>
-                                    <a href="<?= htmlspecialchars($req->sick_leave_file) ?>"
+                                    <a href="/CS516-PHP/public/<?= htmlspecialchars($req->sick_leave_file) ?>"
                                        target="_blank"
                                        class="btn btn-info btn-sm"
                                        style="font-family: Funnel Display;">
@@ -78,3 +84,17 @@
 </div>
 
 <?php require __DIR__ . '/../shared/footer.php'; ?>
+
+<script>
+document.querySelectorAll('form[action*="approvesickleave"]').forEach(form => {
+    form.addEventListener('submit', function (e) {
+        const decision = e.submitter?.value;
+        const comment = form.querySelector('textarea[name="comment"]').value.trim();
+
+        if (decision === 'Rejected' && comment === '') {
+            e.preventDefault();
+            alert('Please provide a rejection comment.');
+        }
+    });
+});
+</script>

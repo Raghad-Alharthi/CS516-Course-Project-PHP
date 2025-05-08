@@ -52,15 +52,13 @@ class AdminController
 
         // Fetch all classes with optional teacher names
         $stmt = $pdo->query("SELECT c.*, u.first_name AS teacher_first, u.last_name AS teacher_last
-                             FROM classes c
-                             LEFT JOIN users u ON c.teacher_id = u.user_id");
+                            FROM classes c
+                            LEFT JOIN users u ON c.teacher_id = u.user_id");
         $classes = [];
         while ($row = $stmt->fetch()) {
             $c = new ClassModel($row);
-            $c->teacherName = trim(
-                ($row['teacher_first'] ?? '') . ' ' .
-                ($row['teacher_last']  ?? '')
-            );
+            $c->teacherName = trim(($row['teacher_first'] ?? '') . ' ' . ($row['teacher_last'] ?? ''));
+            $c->loadLectures(); 
             $classes[] = $c;
         }
 
@@ -71,13 +69,12 @@ class AdminController
         $editId = isset($_GET['editId']) ? (int)$_GET['editId'] : null;
         $vm = new ManageClassesViewModel();
         $vm->classes = $classes;
-        $vm->class_to_edit = $editId
-            ? ClassModel::findById($editId)
-            : null;
+        $vm->class_to_edit = $editId ? ClassModel::findById($editId) : null;
 
         // Pass variables into view
         require __DIR__ . '/../views/admin/manage_classes.php';
     }
+
 
 
     // AddClassWithSchedule (POST)
@@ -88,17 +85,71 @@ class AdminController
         $teacherId = (isset($_POST['TeacherID']) && $_POST['TeacherID'] !== '')
                      ? (int)$_POST['TeacherID']
                      : null;
-        // 1. Create new class
+
+        // Validate lecture time and day
+        $allowedDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+        $selectedDay = $_POST['selectedDay'];
+        $selectedTime = $_POST['selectedTime'];  // format: "HH:MM"
+
+        if (!in_array($selectedDay, $allowedDays)) {
+            $_SESSION['error'] = 'Invalid day selected. Only Sunday to Thursday are allowed.';
+            header('Location: index.php?route=admin/manageclasses');
+            exit;
+        }
+
+        $hour = (int)explode(':', $selectedTime)[0];
+        if ($hour < 8 || $hour >= 19) {
+            $_SESSION['error'] = 'Lecture must be scheduled between 08:00 and 19:00.';
+            header('Location: index.php?route=admin/manageclasses');
+            exit;
+        }
+
+        // Check for overlapping lectures
+        $teacherId = (isset($_POST['TeacherID']) && $_POST['TeacherID'] !== '') ? (int)$_POST['TeacherID'] : null;
+
+        if ($teacherId) {
+            $pdo = getPDO();
+            $checkDate = new DateTime();
+            while ($checkDate->format('l') !== $selectedDay) {
+                $checkDate->modify('+1 day');
+            }
+            $lectureStart = new DateTime($checkDate->format('Y-m-d') . ' ' . $selectedTime);
+            $lectureEnd = clone $lectureStart;
+            $lectureEnd->modify('+2 hour'); // each lecture is 2 hours
+
+            $stmt = $pdo->prepare("
+                SELECT l.lecture_datetime
+                FROM lectures l
+                JOIN classes c ON l.class_id = c.class_id
+                WHERE c.teacher_id = ?
+                AND TIME(l.lecture_datetime) BETWEEN ? AND ?
+                AND DAYNAME(l.lecture_datetime) = ?
+            ");
+            $stmt->execute([
+                $teacherId,
+                $lectureStart->modify('-59 minutes')->format('H:i:s'),
+                $lectureEnd->modify('+59 minutes')->format('H:i:s'),
+                $selectedDay
+            ]);
+            if ($stmt->fetch()) {
+                $_SESSION['error'] = 'Teacher has another lecture that overlaps with the selected time.';
+                header('Location: index.php?route=admin/manageclasses');
+                exit;
+            }
+        }
+
+
+        // Create new class
         $class = new ClassModel([
             'class_name' => $_POST['className'],
             'teacher_id' => $teacherId
         ]);
         $class->save();
 
-        // 2. Generate lectures
+        // Generate lectures
         $weeksInSemester = 15;
-        $targetDay       = $_POST['selectedDay'];     // e.g. "Monday"
-        $lectureTime     = $_POST['selectedTime'];    // e.g. "09:00"
+        $targetDay       = $_POST['selectedDay'];
+        $lectureTime     = $_POST['selectedTime']; 
         // Find next date for that weekday
         $start = new DateTime();
         while ($start->format('l') !== $targetDay) {
@@ -114,6 +165,7 @@ class AdminController
             $start->modify('+7 days');
         }
 
+        $_SESSION['message'] = 'Class added successfully.';
         header('Location: index.php?route=admin/manageclasses');
         exit;
     }
@@ -138,6 +190,7 @@ class AdminController
         // 4) Class itself
         ClassModel::findById($classId)->delete();
 
+        $_SESSION['message'] = 'Class deleted successfully.';
         header('Location: index.php?route=admin/manageclasses');
         exit;
     }
@@ -145,13 +198,55 @@ class AdminController
     // EditClass (POST)
     public function editclass()
     {
-        $c = ClassModel::findById($_POST['ClassID']);
-        $c->teacher_id = $_POST['TeacherID'] ?: null;
+        $pdo = getPDO();
+        $classId = $_POST['ClassID'];
+        $newTeacherId = $_POST['TeacherID'] ?: null;
+
+        // Get current class's scheduled lectures
+        $stmt = $pdo->prepare("SELECT lecture_datetime FROM lectures WHERE class_id = ?");
+        $stmt->execute([$classId]);
+        $lectures = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        if ($newTeacherId && $lectures) {
+            foreach ($lectures as $lectureDatetime) {
+                $lectureStart = new DateTime($lectureDatetime);
+                $lectureEnd = clone $lectureStart;
+                $lectureEnd->modify('+2 hours'); // Assuming 2-hour lecture
+
+                // Check if this teacher has overlapping lectures
+                $conflictStmt = $pdo->prepare("
+                    SELECT l.lecture_datetime
+                    FROM lectures l
+                    JOIN classes c ON l.class_id = c.class_id
+                    WHERE c.teacher_id = ?
+                    AND c.class_id != ? -- exclude the current class
+                    AND l.lecture_datetime BETWEEN ? AND ?
+                ");
+                $conflictStmt->execute([
+                    $newTeacherId,
+                    $classId,
+                    $lectureStart->modify('-59 minutes')->format('Y-m-d H:i:s'),
+                    $lectureEnd->modify('+59 minutes')->format('Y-m-d H:i:s')
+                ]);
+
+                if ($conflictStmt->fetch()) {
+                    $_SESSION['error'] = 'Conflict detected: This teacher is already scheduled for another class during one or more lecture times.';
+                    header('Location: index.php?route=admin/manageclasses&editId=' . $classId);
+                    exit;
+                }
+            }
+        }
+
+        // Save teacher assignment if no conflict
+        $c = ClassModel::findById($classId);
+        $c->teacher_id = $newTeacherId;
         $c->save();
+
         $_SESSION['message'] = 'Class updated successfully.';
         header('Location: index.php?route=admin/manageclasses');
         exit;
     }
+
 
     // Manage Students
     public function managestudents()
@@ -182,7 +277,11 @@ class AdminController
         $already = array_filter($exists, fn($sc) => $sc->class_id == $classId);
         if (!$already) {
             StudentClass::enroll($studentId, $classId);
+            $_SESSION['message'] = 'Student assigned successfully.';
+            header('Location: index.php?route=admin/managestudents');
+            exit;
         }
+        $_SESSION['error'] = 'Student is already assigned.';
         header('Location: index.php?route=admin/managestudents');
         exit;
     }
@@ -198,6 +297,7 @@ class AdminController
             'role'          => 'Student'
         ]);
         $u->save();
+        $_SESSION['message'] = 'Student added successfully.';
         header('Location: index.php?route=admin/managestudents');
         exit;
     }
@@ -239,6 +339,7 @@ class AdminController
             'role'          => 'Teacher'
         ]);
         $u->save();
+        $_SESSION['message'] = 'Teacher added successfully.';
         header('Location: index.php?route=admin/manageteachers');
         exit;
     }
@@ -253,6 +354,7 @@ class AdminController
             ->execute([$tid]);
         // Delete teacher
         User::findById($tid)->delete();
+        $_SESSION['message'] = 'Teacher deleted successfully.';
         header('Location: index.php?route=admin/manageteachers');
         exit;
     }

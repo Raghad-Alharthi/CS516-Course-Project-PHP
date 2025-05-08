@@ -6,6 +6,7 @@ class ClassModel {
     public $class_name;
     public $teacher_id;
     public $teacherName;
+    public $lectures = [];
 
     public function __construct($data = []) {
         foreach ($data as $key => $value) {
@@ -36,6 +37,13 @@ class ClassModel {
         return array_map(fn($r) => new self($r), $stmt->fetchAll());
     }
 
+    public function loadLectures() {
+        $pdo = getPDO();
+        $stmt = $pdo->prepare("SELECT lecture_datetime FROM lectures WHERE class_id = ? ORDER BY lecture_datetime ASC");
+        $stmt->execute([$this->class_id]);
+        $this->lectures = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+    
     public function save() {
         $pdo = getPDO();
         if (isset($this->class_id)) {

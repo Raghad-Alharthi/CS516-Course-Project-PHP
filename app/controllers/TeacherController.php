@@ -175,16 +175,25 @@ class TeacherController
     {
         $attendanceId = $_POST['attendanceId'];
         $decision     = $_POST['decision'];
-        $comment      = $_POST['comment'] ?? null;
+        $comment      = trim($_POST['comment'] ?? '');
+
+        // Require comment if rejecting
+        if ($decision === 'Rejected' && empty($comment)) {
+            $_SESSION['error'] = 'Rejection comment is required.';
+            header('Location: index.php?route=teacher/sickleaverequests&lectureId=' . $attendanceId);
+            exit;
+        }
 
         $att = Attendance::findById($attendanceId);
         if ($att) {
             $att->sick_leave_status  = $decision;
-            $att->sick_leave_comment = ($decision==='Rejected') ? $comment : null;
+            $att->sick_leave_comment = ($decision === 'Rejected') ? $comment : null;
             $att->save();
         }
 
+        $_SESSION['message'] = 'Sick leave request updated.';
         header('Location: index.php?route=teacher/sickleaverequests&lectureId=' . $att->lecture_id);
         exit;
     }
+
 }
