@@ -7,9 +7,22 @@
 <div class="container my-5">
     <h3 style="font-family: Funnel Display; color: #123458; font-weight: 800;">Manage Teachers</h3>
 
+    <!-- Flash Message -->
     <?php if (!empty($_SESSION['message'])): ?>
-        <div class="alert alert-info mt-3"><?php echo htmlspecialchars($_SESSION['message']); unset($_SESSION['message']); ?></div>
+        <div class="alert alert-success mt-3" role="alert">
+            <?= htmlspecialchars($_SESSION['message']) ?>
+        </div>
+        <?php unset($_SESSION['message']); ?>
     <?php endif; ?>
+
+    <!-- Flash Errors -->
+    <?php if (!empty($_SESSION['error'])): ?>
+        <div class="alert alert-danger  mt-3" role="alert">
+            <?= htmlspecialchars($_SESSION['error']) ?>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
 
     
     <!-- Teachers List -->

@@ -39,7 +39,7 @@ class AccountController
             }
         }
 
-        // Render the view (which itself includes header/footer)
+        // Render the view 
         require __DIR__ . '/../views/account/login.php';
     }
 

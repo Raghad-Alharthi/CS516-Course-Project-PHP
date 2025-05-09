@@ -42,7 +42,7 @@
                             <?php if (!empty($classItem->lectures)): ?>
                                 <?php
                                     $firstLecture = new DateTime($classItem->lectures[0]);
-                                    echo $firstLecture->format('l - H:i'); // Example: Monday - 09:00
+                                    echo $firstLecture->format('l - H:i'); 
                                 ?>
                             <?php else: ?>
                                 <span class="text-muted">No lectures</span>

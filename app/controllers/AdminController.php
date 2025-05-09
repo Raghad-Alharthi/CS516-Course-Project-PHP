@@ -289,6 +289,18 @@ class AdminController
     // AddStudent (POST)
     public function addstudent()
     {
+        $pdo = getPDO();
+
+        // Check for existing username
+        $check = $pdo->prepare('SELECT user_id FROM users WHERE username = :username');
+        $check->execute(['username' => $_POST['username']]);
+
+        if ($check->fetch()) {
+            $_SESSION['error'] = 'Username is already taken. Please choose another one.';
+            header('Location: index.php?route=admin/managestudents');
+            exit;
+        }
+
         $u = new User([
             'first_name'    => $_POST['firstName'],
             'last_name'     => $_POST['lastName'],
@@ -331,6 +343,19 @@ class AdminController
     // AddTeacher (POST)
     public function addteacher()
     {
+        $pdo = getPDO();
+
+        // Check for existing username
+        $check = $pdo->prepare('SELECT user_id FROM users WHERE username = :username');
+        $check->execute(['username' => $_POST['username']]);
+
+        if ($check->fetch()) {
+            $_SESSION['error'] = 'Username is already taken. Please choose another one.';
+            header('Location: index.php?route=admin/manageteachers');
+            exit;
+        }
+
+        // If not taken, proceed to add teacher
         $u = new User([
             'first_name'    => $_POST['firstName'],
             'last_name'     => $_POST['lastName'],
@@ -338,11 +363,13 @@ class AdminController
             'password_hash' => password_hash($_POST['password'], PASSWORD_DEFAULT),
             'role'          => 'Teacher'
         ]);
+
         $u->save();
         $_SESSION['message'] = 'Teacher added successfully.';
         header('Location: index.php?route=admin/manageteachers');
         exit;
     }
+
 
     // DeleteTeacher (POST)
     public function deleteteacher()

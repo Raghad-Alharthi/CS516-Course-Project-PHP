@@ -10,6 +10,22 @@ require __DIR__ . '/../shared/header.php';
             Manage Class: <?= htmlspecialchars($class->class_name) ?>
         </h3>
 
+        <!-- Flash Message -->
+        <?php if (!empty($_SESSION['message'])): ?>
+            <div class="alert alert-success mt-3" role="alert">
+                <?= htmlspecialchars($_SESSION['message']) ?>
+            </div>
+            <?php unset($_SESSION['message']); ?>
+        <?php endif; ?>
+
+        <!-- Flash Errors -->
+        <?php if (!empty($_SESSION['error'])): ?>
+            <div class="alert alert-danger  mt-3" role="alert">
+                <?= htmlspecialchars($_SESSION['error']) ?>
+            </div>
+            <?php unset($_SESSION['error']); ?>
+        <?php endif; ?>
+        
         <table class="table table-bordered mt-4" style="background-color: white;">
             <thead style="background-color: #123458; color: white;">
                 <tr>

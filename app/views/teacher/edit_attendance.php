@@ -10,6 +10,22 @@ require __DIR__ . '/../shared/header.php';
             Attendance for Lecture on <?php echo (new DateTime($lecture->lecture_datetime))->format('y-m-d h:i A'); ?>
         </h3>
 
+        <!-- Flash Message -->
+        <?php if (!empty($_SESSION['message'])): ?>
+            <div class="alert alert-success mt-3" role="alert">
+                <?= htmlspecialchars($_SESSION['message']) ?>
+            </div>
+            <?php unset($_SESSION['message']); ?>
+        <?php endif; ?>
+
+        <!-- Flash Errors -->
+        <?php if (!empty($_SESSION['error'])): ?>
+            <div class="alert alert-danger  mt-3" role="alert">
+                <?= htmlspecialchars($_SESSION['error']) ?>
+            </div>
+            <?php unset($_SESSION['error']); ?>
+        <?php endif; ?>
+        
         <form method="post" action="index.php?route=teacher/saveattendance" class="mt-4">
             <input type="hidden" name="lectureId" value="<?= htmlspecialchars($lecture->lecture_id) ?>" />
 

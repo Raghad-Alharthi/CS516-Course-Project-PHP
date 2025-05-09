@@ -107,14 +107,20 @@ class TeacherController
         }
 
         $pdo = getPDO();
-        $pdo->beginTransaction(); // Start transaction for safety
+        $pdo->beginTransaction();
 
         try {
-            // First, delete all existing attendance for this lecture
-            $stmt = $pdo->prepare("DELETE FROM attendance WHERE lecture_id = ?");
+            // Get students who submitted sick leave — we should not touch them
+            $stmt = $pdo->prepare("
+                SELECT student_id 
+                FROM attendance 
+                WHERE lecture_id = ? 
+                AND (sick_leave_file IS NOT NULL AND sick_leave_status IS NOT NULL)
+            ");
             $stmt->execute([$lectureId]);
+            $protected = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-            // Then, insert only the students who were absent (not in presentArr)
+            // Get all students in the class
             $classStudents = $pdo->prepare("
                 SELECT student_id 
                 FROM student_classes 
@@ -123,26 +129,41 @@ class TeacherController
             $classStudents->execute([$lecture->class_id]);
             $students = $classStudents->fetchAll(PDO::FETCH_COLUMN);
 
+            // Remove attendance records only for unprotected students
+            $stmt = $pdo->prepare("
+                DELETE FROM attendance 
+                WHERE lecture_id = ? AND student_id = ?
+            ");
+
             foreach ($students as $studentId) {
-                if (!in_array($studentId, $presentArr)) {
-                    $insert = $pdo->prepare("
-                        INSERT INTO attendance (lecture_id, student_id, is_present)
-                        VALUES (?, ?, 0)
-                    ");
+                if (!in_array($studentId, $protected)) {
+                    $stmt->execute([$lectureId, $studentId]);
+                }
+            }
+
+            // Insert updated absentees, skipping protected
+            $insert = $pdo->prepare("
+                INSERT INTO attendance (lecture_id, student_id, is_present)
+                VALUES (?, ?, 0)
+            ");
+
+            foreach ($students as $studentId) {
+                if (!in_array($studentId, $presentArr) && !in_array($studentId, $protected)) {
                     $insert->execute([$lectureId, $studentId]);
                 }
             }
 
-            $pdo->commit(); // Commit if all good
-            $_SESSION['success'] = 'Attendance updated successfully.';
+            $pdo->commit();
+            $_SESSION['message'] = 'Attendance updated successfully.';
         } catch (Exception $e) {
-            $pdo->rollBack(); // Rollback if any error happens
+            $pdo->rollBack();
             $_SESSION['error'] = 'Failed to update attendance.';
         }
 
         header('Location: index.php?route=teacher/manageclass&ClassID=' . $lecture->class_id);
         exit;
     }
+
 
 
     // Sick leave requests
